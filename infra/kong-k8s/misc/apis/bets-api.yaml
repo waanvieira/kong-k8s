@@ -3,13 +3,28 @@ kind: Ingress
 metadata:
   name: bets-api
   annotations:
+  # O ingress que eu quero servir esse ingress é o kong
     kubernetes.io/ingress.class: "kong"
+    # Uma vez identificado a rota não quero que vai pra dentro do kong
+    # vai subscrever para uma outra configuração
+    # Que é o servive king.yaml
+    # Declarando essa informação com o true vamos usar o mecanismo do kubernets
+    # para fazer o loadbalancer do kubernets e não do Kong
+    # com isso ele remove o host do endereço para não passar para o upstrem
+    # Exe: www.betsapp.com.br/api/bets
+    #Nesse caso ele não vai preservar o host (www.betsapp.com.br) vai mandar apenas o api/bets
     konghq.com/override: do-not-preserve-host
-    konghq.com/plugins: oidc-bets,rl-by-header,prometheus-bets
+    #Rota de configuraçã dos plugins, informa os plugins que vão ser usados
+    # Nessa rota habilitamos os nossos plugins, com isso desabilitado não funciona, ativando vai funcionar todos
+    # Nesse trecho funciona como um array, então passamos todos os nomes dos nossos plugins, nome referenciados no metadata: name de cada arquivo
+    #oidc-bets - kopenid.yam (Nosso plugin do Keycloack)
+    konghq.com/plugins: oidc-bets
+    # konghq.com/plugins: oidc-bets,rl-by-header,prometheus-bets
 spec:
   rules:
     - http:
         paths:
+        #Tudo com esse prefixo vai para o microseviço do bets
           - path: /api/bets
             pathType: Prefix
             backend:

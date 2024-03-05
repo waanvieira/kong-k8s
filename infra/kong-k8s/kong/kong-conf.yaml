@@ -10,12 +10,15 @@ image:
 
 env:
   prefix: /kong_prefix/
+  # Significa que não quer usar o banco do kong, vamos usar DB do kubernets
   database: "off"
+  #Indica os plugins do kong, quando subir ele identificar os plugins
   plugins: bundled,oidc,kong-jwt2header
 
 admin:
   enabled: true
   http:
+  #Habilitando portas admin
     enabled: true
     servicePort: 8001
     containerPort: 8001
@@ -25,19 +28,24 @@ admin:
     enable-metrics: "true"
 
 postgresql:
+#Desabilitado pelo motivo do env acima, estamos usando o DB do kubernets
   enabled: false
 
+#vamos usar o kong como o nosso ingress
 ingressController:
   image:
+  #vamos usar o kong como o nosso ingress
     repository: kong/kubernetes-ingress-controller
     tag: "2.12"
   enabled: true
+  # Flag de compatibilidade com o helm, se estiver usando o helm3 setar como false
   installCRDs: false
 
 podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "8100"
-
+#Poderia usar clusterIp ou LoadBalancer
+# Estamos usando o nodeport para rodar local
 proxy:
   type: NodePort
 

@@ -1,10 +1,17 @@
 apiVersion: configuration.konghq.com/v1
+#Indicando KongPlugin  significa que vamos adicionar o plugin para o serviço
+# no Konga seria instalar o plugin no service
 kind: KongPlugin
 metadata:
   name: rl-by-header
 config:
+# Tempo para bloquear o ratelimit
   second: 10000
+  # Limitar pelo header
   limit_by: header
+  # Policy local, poderiamos indicar para o Redis
   policy: local
+  #Vamos bloquear por usuário
   header_name: X-Credential-Identifier
+#plugin
 plugin: rate-limiting

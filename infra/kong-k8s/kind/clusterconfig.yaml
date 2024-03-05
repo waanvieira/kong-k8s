@@ -2,6 +2,9 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
+  # Indicando o node-labels: "ingress-ready=true" não precisamos ficar rodando o comando
+  # De portas do kubernets para poder acessar "externamento" do cluster
+  # Substitui ter que colocar kubectl port-forward pod/goserver 8009:8009
     kubeadmConfigPatches:
       - |
         kind: InitConfiguration
@@ -9,9 +12,11 @@ nodes:
           kubeletExtraArgs:
             node-labels: "ingress-ready=true"
     extraPortMappings:
+    #Porta que será redirecionada
       - containerPort: 30000
-        hostPort: 80
+      #Porta para acessar no "navegador"
+        hostPort: 8008
         protocol: TCP
       - containerPort: 30003
-        hostPort: 443
+        hostPort: 4443
         protocol: TCP

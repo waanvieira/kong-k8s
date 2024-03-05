@@ -1,10 +1,13 @@
 apiVersion: configuration.konghq.com/v1
+#Indicando ClusterPlugin  significa que vamos adicionar o plugin para todo o cluster
+# no Konga seria instalar o plugin globalmente
 kind: KongClusterPlugin
 metadata:
   name: prometheus-bets
   annotations:
     kubernetes.io/ingress.class: "kong"
   labels:
+  # Label global indica que é um plugin global
     global: "true"
 config: {}
 plugin: prometheus

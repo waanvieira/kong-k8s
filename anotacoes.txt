@@ -1,0 +1,236 @@
+# Deployments
+
+Adicionar o namespace de cada serviço para ficar mais organizado e ficar mais fácil a configuração
+
+Passo a passo para criar as configurações
+
+# Criar o cluster
+
+No cluster Indicando o node-labels: "ingress-ready=true" não precisamos ficar rodando o comando
+# De portas do kubernets para poder acessar "externamento" do cluster
+# Substitui ter que colocar kubectl port-forward pod/goserver 8009:8009
+kubeadmConfigPatches:
+    - |
+    kind: InitConfiguration
+    nodeRegistration:
+        kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+
+# Criando pod do Kong
+
+Entrar na pasta
+infra/kong-k8s/kong 
+
+Executar o kong.sh
+
+kubectl get po -n kong
+
+# Subir o prometheus
+
+pasta infra/kong-k8s/mis/prometheus
+Executar o ./prometheus.sh 
+
+Após instalar o pacote via helm ele cria um esqueleto para montarmos os nossos manifestos de monitoramento
+
+Verificar se nossos pods foram criados - (-n monitoring porque no nosso .sh definimos esse namespace para esse plugin)
+kubectl get po -n monitoring
+
+# Instalar o Keycloack
+
+Na pasta infra/kong-k8s/mis/Keycloack
+
+executar o ./keycloack.sh
+
+Verificar nossos pods
+
+kubectl get po -n iam
+
+ - Comandos do Keycloack 
+
+Get the Keycloak URL by running these commands:
+
+export HTTP_SERVICE_PORT=$(kubectl get --namespace iam -o jsonpath="{.spec.ports[?(@.name=='http')].port}" services keycloak)
+kubectl port-forward --namespace iam svc/keycloak ${HTTP_SERVICE_PORT}:${HTTP_SERVICE_PORT} &
+Get the Keycloak URL by running these commands:
+
+export HTTP_SERVICE_PORT=$(kubectl get --namespace iam -o jsonpath="{.spec.ports[?(@.name=='http')].port}" services keycloak)
+kubectl port-forward --namespace iam svc/keycloak ${HTTP_SERVICE_PORT}:${HTTP_SERVICE_PORT} &
+
+echo "http://127.0.0.1:${HTTP_SERVICE_PORT}/"
+
+echo "http://127.0.0.1:${HTTP_SERVICE_PORT}/"
+
+
+# Criar nosso configMap para depois criar os deployments
+
+Na pasta infra/kong-k8s/misc/apps
+
+# Criar os deployments dos nossos serviços
+
+executar 
+
+Antes de iniciar o comando, criar o namespace a qual vamos relacionar nossos serviços
+
+*kubectl create ns bets
+
+kubectl apply -f caminho_pasta --recursive -n nome_do_namespace
+
+no nosso caso vamos executar na pasta app que com o comando .sh vai criar os nossos deployments na seguinte ordem
+
+#Arquivo confimpa (env)
+configmap/bets-config created
+# Nossos deployments
+deployment.apps/bets created
+deployment.apps/championships created
+deployment.apps/matches created
+deployment.apps/players created
+# nossos serviços hpa
+horizontalpodautoscaler.autoscaling/bets-hpa created
+horizontalpodautoscaler.autoscaling/championships-hpa created
+horizontalpodautoscaler.autoscaling/matches-hpa created
+horizontalpodautoscaler.autoscaling/players-hpa created
+# nossos services
+service/bets created
+service/championships created
+service/matches created
+service/players created
+
+kubectl apply -f infra/kong-k8s/misc/apps --recursive -n bets
+
+Criando todos os arquivos de uma vez, recursive para pegar todos os arquivos da pasta
+criando name space 
+
+kubectl get pod -n bets
+
+# Adicionar plugins
+
+Kind dos plugins
+
+KongClusterPlugin - Global
+KongPlugin - Plugin por serviço
+
+Vamos configurar o kong com objetos no formato de kubernets, não precisando configurar pelo konga
+Indicar o namespace para os plugins também
+
+- Rate limit
+
+kubectl apply -f kratelimit.yaml -n bets
+
+Prometheus - Diferença que não precisa indicar um nameSpace
+
+kubectl apply -f kprometheus.yaml
+
+# Ingress - Configurar as rotas do kong, os redirecionamentos para cada path
+
+Adicionando o nosso ingress
+
+kubectl apply -f bets-api.yaml -n bets
+
+Adicionando o service
+
+kubectl apply -f king.yaml -n bets
+
+Executar o keycload
+
+kubectl port-forward svc/keycloak 8083:80 -n iam 
+
+Criar o helm
+Criar um usuário
+Criar um client
+
+Depois que criar o client setar como open ID
+No Keycloack no client ir em credentials, pegar o "client secret" e adicionar no arquivo 
+"kopenid" setar os valores na variável
+config:
+  client_id: "kong" (nome do nosso client)
+  client_secret: "GHvGsIM35kMDPnkN71O4EqzUGq0MvOEA" (chave client secret do nosso client)
+  # discovery: "http://keycloak.iam/realms/nome_do_nosso_helm/.well-known/openid-configuration" (Rota de redirecionamento)
+  discovery: "http://keycloak.iam/realms/bets/.well-known/openid-configuration" (Rota de redirecionamento)
+  introspection_endpoint: "http://keycloak.iam/realms/bets/protocol/openid-connect/token/introspect"
+
+  Depois de configurar o plugin do keycloack 
+
+
+Rodar o manifesto
+
+kubectl apply -f kopenid.yaml -n bets
+
+Configurar também o nosso ingress
+
+No arquivo do nosso ingress bets-api.yaml em annotations:
+
+Rota de configuraçã dos plugins, informa os plugins que vão ser usados
+Nessa rota habilitamos os nossos plugins, com isso desabilitado não funciona, ativando vai funcionar todos
+Nesse trecho funciona como um array, então passamos todos os nomes dos nossos plugins, nome referenciados no metadata: name de cada arquivo
+
+oidc-bets - kopenid.yam (Nosso plugin do Keycloack)
+
+konghq.com/plugins: oidc-bets
+
+Depois de configurar rodar o nosso manifesto configurado
+
+kubectl apply -f bets-api.yaml -n bets
+
+Para pegar um token vamos usar o curl que esstá na pasta Token com as configurações do nosso client
+Lembrando, poderiamos fazer o login pelo navegador usando o localhost, porém não iria funcionar, ele identifica
+o link do helm como localhost, e como estamos usando kubernetes ele vai identificar como a rede do nosso k8s
+que seria http://keycloak.iam o nome do nosso service+namespace
+
+Estamos usando o modo grantype password do keycloack
+
+Vamos criar um pode global do curl
+
+kubectl apply -f token/pod.yaml 
+
+Depois de aplicado vamos fazer uma requisição curl para o keycloack interno do nosso k8S
+
+Entrando no pod curl
+
+kubectl exec -it testcurl -- sh
+
+Dentro do pod vamos executar o comando
+
+curl --location --request POST 'http://keycloak.iam/realms/bets/protocol/openid-connect/token' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'client_id=nome_do_client' \
+--data-urlencode 'grant_type=password' \
+--data-urlencode 'username=user_name_keycloack' \
+--data-urlencode 'password=password_keycloack' \
+--data-urlencode 'client_secret=client_secret_do_nosso_service' \
+--data-urlencode 'scope=openid'
+
+# Argo 
+
+- Argo é a nossa ferramenta de devops para verificar alguma mudança feita no k8s para aplicar as mudanças
+no nossos clusters, documentação do argo
+https://argo-cd.readthedocs.io/en/stable/
+
+Instalar o argo
+
+Rodar o .sh na nossa pasta
+
+infra/kong-k8s/argo
+
+./argo.sh
+
+Verificar se está rodando
+
+kubectl get pod -n argocd
+
+Rodar o comando para gerar a senha
+
+argocd admin initial-password -n argocd
+
+Criando senha administrativa para acessar a UI 
+
+kubectl -n argocd get secrets argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+
+Depos rodar o port forward
+
+kubectl port-forward svc/aocd-server -n argocd 8088:443
+
+Obs: Criamos arquivos para configurar cada ambiente por ser melhor e mais conveniente, se por acaso
+perdemos o DB do argo teriamos que configurar tudo manualmente, com arquivos .yml bastaria executar
+os arquivos no k8s e tudo estaria funcionando, os arquivos são nada mais que configurações igual
+seria na tela
+
